@@ -1,0 +1,87 @@
+/**
+ Código projeto  IOT 
+*/
+#include <WiFi.h>
+#include "HTTPClient.h";
+#include <Wire.h>
+#include "DHTesp.h"
+#include <LiquidCrystal_I2C.h>
+int cont = 0;
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+const int DHT_PIN = 15;
+const int ledvermelho = 12;
+const int ledverde = 14;
+const int dht = 15;
+DHTesp dhtSensor;
+LiquidCrystal_I2C lcd(0x27,16,2);
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  pinMode(ledvermelho, OUTPUT);
+  pinMode(ledverde, OUTPUT);
+  dhtSensor.setup(dht, DHTesp::DHT22);
+  lcd.init();
+  lcd.backlight();
+
+  lcd.clear();              // clear display
+  lcd.setCursor(0, 0);      // move cursor to   (0, 0)
+  lcd.print("Wi-Fi");       // print message at (0, 0)
+  lcd.setCursor(0, 1);      
+  lcd.print("Conectando...");  
+  WiFi.begin("Wokwi-GUEST", "", 6);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    lcd.clear();   
+  }
+  lcd.setCursor(0, 0);
+  lcd.println(" Conectado!");
+  delay(1000);
+  lcd.clear();
+  delay(1000);  
+}
+
+void loop() {
+  
+  lcd.clear();
+  TempAndHumidity  data = dhtSensor.getTempAndHumidity();
+  lcd.setCursor(0,0);
+  lcd.print("Temp: " + String(data.temperature) + " C");
+  lcd.setCursor(0,1);
+  lcd.print("Umid: " + String(data.humidity) + " %");
+  delay(1000);
+
+  if (data.temperature > 35) {
+  digitalWrite(ledvermelho, HIGH);
+}
+  else if (data.humidity > 70) {
+  digitalWrite(ledverde, HIGH);
+}
+  else {
+ digitalWrite(ledvermelho, LOW);
+ digitalWrite(ledverde, LOW);
+}
+cont = cont + 1;
+
+String url = "https://api.thingspeak.com/update?api_key=1USBUK4P2B6058F7&field1=";
+  url = url + data.temperature + "&field2=" + data.humidity;
+  HTTPClient http;
+  http.begin(url);  
+  int httpCode = http.GET();
+  if (httpCode>0) {
+    String payload = http.getString();
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("HTTP Ok");
+    lcd.setCursor(0,1);
+    lcd.print("Dados Enviados!");
+    delay(1000);
+  }else{
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Error on HTTP request");
+    delay(1500);
+  }
+  
+}
